@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Agent Test Page</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #target-btn {
+      position: absolute; left: 100px; top: 100px;
+      width: 200px; height: 100px; font-size: 20px;
+    }
+    #name-input {
+      position: absolute; left: 100px; top: 250px;
+      width: 200px; height: 40px; font-size: 18px;
+    }
+    #result { position: absolute; left: 100px; top: 330px; font-size: 22px; }
+  </style>
+</head>
+<body>
+  <button id="target-btn" onclick="document.getElementById('result').textContent = 'button-clicked'">
+    Click me
+  </button>
+  <input id="name-input" placeholder="type here" />
+  <div id="result">waiting</div>
+</body>
+</html>
