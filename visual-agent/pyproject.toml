@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visual-agent"
+version = "0.1.0"
+description = "Open-source visual agentic AI: vision reasoning + browser computer-use on a local VLM (fits 48 GB VRAM)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "langgraph>=0.2.60",
+    "langchain-core>=0.3.30",
+    "langchain-openai>=0.3.0",
+    "playwright>=1.48",
+    "gradio>=5.50,<6.0",
+    "typer>=0.12",
+    "pydantic-settings>=2.5",
+    "pillow>=10.0",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# ChatGPT-style voice conversation (WebRTC + VAD + Whisper STT + Kokoro TTS)
+voice = ["fastrtc[vad,tts]>=0.0.20", "faster-whisper>=1.0"]
+# OS-level desktop control (open apps, click/type on the whole screen)
+desktop = ["pyautogui>=0.9.54", "mss>=9.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+visual-agent = "visual_agent.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
