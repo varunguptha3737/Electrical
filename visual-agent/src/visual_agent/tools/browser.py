@@ -10,6 +10,7 @@ from __future__ import annotations
 from langchain_core.tools import tool
 
 from ..config import settings
+from .dom import PageElement, extract_elements
 
 
 class BrowserSession:
@@ -25,6 +26,7 @@ class BrowserSession:
         self._pw = None
         self._browser = None
         self.page = None
+        self.elements: list[PageElement] = []
 
     def start(self) -> "BrowserSession":
         from playwright.sync_api import sync_playwright
@@ -55,6 +57,19 @@ class BrowserSession:
 
     def screenshot(self) -> bytes:
         return self.page.screenshot(type="png")
+
+    def refresh_elements(self) -> list[PageElement]:
+        self.elements = extract_elements(self.page)
+        return self.elements
+
+    def _find_element(self, element_id: int) -> PageElement:
+        for el in self.elements:
+            if el.element_id == element_id:
+                return el
+        raise ValueError(
+            f"No element [{element_id}] on the current screen "
+            f"(valid ids: 1..{len(self.elements)}). Look at the latest screenshot."
+        )
 
     def _settle(self) -> None:
         try:
@@ -97,6 +112,20 @@ class BrowserSession:
         self._settle()
         return f"Went back. Page title: {self.page.title()!r}"
 
+    def click_element(self, element_id: int) -> str:
+        el = self._find_element(element_id)
+        x, y = el.center
+        self.page.mouse.click(x, y)
+        self._settle()
+        return f"Clicked {el.describe()} at its center ({x}, {y})."
+
+    def type_in_element(self, element_id: int, text: str) -> str:
+        el = self._find_element(element_id)
+        x, y = el.center
+        self.page.mouse.click(x, y)
+        self.page.keyboard.type(text, delay=20)
+        return f"Typed {text!r} into {el.describe()}."
+
 
 def make_browser_tools(session: BrowserSession) -> list:
     """Build the LangChain tools bound to one live browser session."""
@@ -107,10 +136,24 @@ def make_browser_tools(session: BrowserSession) -> list:
         return session.navigate(url)
 
     @tool
+    def click_element(element_id: int) -> str:
+        """Click an interactive element by the numbered id shown on the latest
+        screenshot / element list. PREFER this over pixel clicks — it always
+        hits the element exactly."""
+        return session.click_element(element_id)
+
+    @tool
+    def type_in_element(element_id: int, text: str) -> str:
+        """Click a numbered input element to focus it, then type the text
+        into it. PREFER this for filling forms."""
+        return session.type_in_element(element_id, text)
+
+    @tool
     def click(x: int, y: int) -> str:
-        """Click at pixel coordinates (x, y) on the current page. Ground the
-        coordinates on the LATEST screenshot: x is from the left edge, y from
-        the top edge."""
+        """Click at pixel coordinates (x, y) on the current page. Only use
+        this when the target has NO numbered id (e.g. a spot on a map or
+        canvas). x is from the left edge, y from the top edge of the LATEST
+        screenshot."""
         return session.click(x, y)
 
     @tool
@@ -141,4 +184,8 @@ def make_browser_tools(session: BrowserSession) -> list:
         final answer or result summary for the user. This ends the session."""
         return answer
 
-    return [navigate, click, type_text, press_key, scroll, go_back, finish]
+    tools = [navigate, click, type_text, press_key, scroll, go_back, finish]
+    if settings.agent_vision_mode == "hybrid":
+        tools = [navigate, click_element, type_in_element, click, type_text,
+                 press_key, scroll, go_back, finish]
+    return tools

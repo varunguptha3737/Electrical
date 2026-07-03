@@ -1,100 +1,147 @@
 # 👁️ Visual Agent
 
-A fully open-source **visual agentic AI** that runs on a single **48 GB VRAM** machine:
+A fully open-source **visual agentic AI** that runs on **48 GB VRAM** (local or rented):
 
 - **Vision reasoning** — chat with a local vision-language model about images, screenshots, documents, charts.
-- **Computer use** — give it a task and it drives a real browser from screenshots: it looks at the page, decides, clicks at pixel coordinates, types, scrolls, until the task is done.
+- **Computer use (browser)** — give it a task and it drives a real browser: looks at the page, clicks numbered elements, types, scrolls, until done.
+- **Computer use (desktop)** — control the *whole* OS screen: open LibreOffice Calc and edit a spreadsheet, open a photo in GIMP and edit it, use any app.
+- **Voice mode** — talk to it like ChatGPT/Claude voice: it answers with a natural voice, you can **interrupt it mid-sentence**, and spoken commands ("open Wikipedia and…") run the computer-use agent with spoken progress.
 
-**Stack (all open source):** [vLLM](https://github.com/vllm-project/vllm) serving [Qwen3-VL](https://huggingface.co/Qwen) · [LangGraph](https://github.com/langchain-ai/langgraph) agent loop (ReAct-style) · [Playwright](https://playwright.dev) browser control · [Gradio](https://gradio.app) web UI · Typer CLI.
+**Stack (all open source):** [vLLM](https://github.com/vllm-project/vllm) serving [Qwen3-VL](https://huggingface.co/Qwen) · [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent loop · [Playwright](https://playwright.dev) browser · [pyautogui](https://github.com/asweigart/pyautogui)+[mss](https://github.com/BoboTiG/python-mss) desktop control · [FastRTC](https://github.com/gradio-app/fastrtc) (WebRTC + Silero VAD) · [faster-whisper](https://github.com/SYSTRAN/faster-whisper) STT · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) TTS · [Gradio](https://gradio.app) UI · Typer CLI.
 
 ```
-Gradio UI ─┐                       ┌──────────────────────────────┐
-           ├─▶ LangGraph agent ──▶ │ vLLM · Qwen3-VL-32B · :8000  │
-CLI ───────┘        │              └──────────────────────────────┘
-                    ▼
-        Playwright browser tools
-        navigate · click(x,y) · type · scroll · keys
-        (fresh screenshot fed back to the model every step)
+ 🎙️ Voice (WebRTC+VAD)──STT──┐                ┌──────────────────────────────┐
+ 🌐 Gradio UI ───────────────┼─▶ LangGraph ──▶│ vLLM · Qwen3-VL-32B · :8000  │
+ ⌨️  CLI ────────────────────┘   agent loop   │ (local 48GB GPU or rented)   │
+                                   │          └──────────────────────────────┘
+                     ┌─────────────┴─────────────┐
+                     ▼                           ▼
+            Browser (Playwright)        Desktop (pyautogui)
+            numbered elements,          open_app, click, drag,
+            click/type/scroll           hotkeys, type — any app
 ```
 
-## 1. Requirements
+## 1. Serve the model (vLLM)
 
-- NVIDIA GPU(s) with ~48 GB total VRAM (1× RTX 6000 Ada / L40S / A6000, or 2× 3090/4090)
-- Python 3.10+, CUDA drivers
-- ~40 GB disk for model weights
-
-## 2. Serve the model (vLLM)
+On the machine with the GPU (yours **or rented**, see §5):
 
 ```bash
-pip install vllm                # ideally in its own venv
-./scripts/serve_vllm.sh         # serves Qwen/Qwen3-VL-32B-Instruct-FP8 on :8000
+pip install vllm
+./scripts/serve_vllm.sh     # Qwen/Qwen3-VL-32B-Instruct-FP8 on :8000
 ```
 
-Model options for 48 GB (set `MODEL_NAME` env var, and in `.env`):
+Model options for 48 GB (`MODEL_NAME=... ./scripts/serve_vllm.sh`):
 
 | Model | VRAM (weights) | Notes |
 |---|---|---|
 | `Qwen/Qwen3-VL-32B-Instruct-FP8` (default) | ~33 GB | Best quality; strong native GUI grounding |
 | `Qwen/Qwen3-VL-30B-A3B-Instruct-FP8` | ~31 GB | MoE — much faster, near-same quality |
 | `Qwen/Qwen2.5-VL-32B-Instruct-AWQ` | ~19 GB | Biggest headroom / longest context |
-| `ByteDance-Seed/UI-TARS-1.5-7B` | ~16 GB | Specialized GUI-agent model — great click accuracy, weaker general chat |
+| `ByteDance-Seed/UI-TARS-1.5-7B` | ~16 GB | GUI-specialist — great click accuracy, weaker chat |
 
-For 2×24 GB cards, use the `--tensor-parallel-size 2` variant in `scripts/serve_vllm.sh`.
+2×24 GB cards: use the `--tensor-parallel-size 2` variant in the script.
 
-## 3. Install the agent
+## 2. Install the agent
 
 ```bash
 cd visual-agent
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,voice]"        # add ,desktop for OS-level control
 playwright install chromium
-cp .env.example .env            # adjust if your vLLM host/model differ
+cp .env.example .env
 ```
 
-## 4. Use it
+## 3. Use it
 
-**Web UI** (vision chat + computer-use with live screenshots):
+**Web UI** — vision chat + computer use + voice:
 
 ```bash
-visual-agent ui                 # http://127.0.0.1:7860
+visual-agent ui                      # http://127.0.0.1:7860
 ```
+
+- **Vision chat** tab: upload images, ask questions, streamed replies.
+- **Computer use** tab: type a task, watch steps + live screenshots.
+- **Voice** tab: click connect, talk. Kokoro speaks each sentence as the model
+  generates it, and Silero VAD lets you barge in mid-reply — start talking and
+  it stops, exactly like ChatGPT voice. Say a task ("go to wikipedia and…")
+  and it runs the computer-use agent, narrating progress out loud.
+  *(Mic access needs `localhost` or HTTPS.)*
 
 **CLI:**
 
 ```bash
-# vision chat (attach images to your first message)
-visual-agent chat -i photo.png
-
-# autonomous browser task — step screenshots land in ./runs/<timestamp>/
-visual-agent browse "Go to en.wikipedia.org and find the population of Iceland"
+visual-agent chat -i photo.png                      # vision chat
+visual-agent browse "find Iceland's population on wikipedia"
+visual-agent desktop "open libreoffice calc, make a 3x3 multiplication table, save as /tmp/t.ods"
 ```
 
-Set `HEADLESS=false` in `.env` to watch the agent drive the browser live.
+`HEADLESS=false` in `.env` shows the browser live. Desktop mode moves your
+real mouse — slam the cursor into a screen corner to abort (pyautogui failsafe).
+To make *voice* commands drive the desktop instead of the browser, set
+`COMPUTER_MODE=desktop`.
 
-**Python API:** see `examples/analyze_chart.py` and `examples/browse_task.py`.
+## 4. Screenshots vs. faster grounding methods
+
+Raw screenshots + pixel clicks work everywhere but are slow (every step ships a
+big image) and clicks can miss. This project defaults to a better method:
+
+| Method | How | Trade-off |
+|---|---|---|
+| Raw screenshots (`AGENT_VISION_MODE=pixels`) | model guesses pixel coords | works on anything, least reliable |
+| **Set-of-Marks hybrid (default)** | interactive elements extracted from the DOM, numbered on the screenshot + listed as text; model calls `click_element(7)` | ~exact clicks, fewer tokens, fewer retries |
+| Pure accessibility tree (no images) | text-only element list | cheapest, but blind to layout/canvas/images |
+
+The hybrid keeps the screenshot (so the model still *sees* the page) but acts
+through numbered elements — clicks land on the element center computed from
+the real DOM, not from visual guessing. Desktop mode has no DOM, so it uses
+pixel grounding with coordinate scaling.
+
+## 5. No GPU? Rent one and run from your laptop
+
+Only the **model server** needs the GPU. Everything else — browser, desktop
+control, voice, UI, CLI — runs on your laptop (CPU is fine).
+
+1. Rent a 48 GB GPU (RunPod / Vast.ai / Lambda: A6000, L40S, A40 are cheap).
+2. On the rented box: `pip install vllm && ./scripts/serve_vllm.sh`
+3. On your laptop, tunnel the port:
+   ```bash
+   ssh -N -L 8000:localhost:8000 user@rented-box
+   ```
+4. Keep `VLLM_BASE_URL=http://localhost:8000/v1` in your local `.env`, then run
+   `visual-agent ui` / `browse` / `desktop` locally as usual.
+
+For voice on a CPU-only laptop set `WHISPER_MODEL=small` (or
+`STT_BACKEND=moonshine`); Kokoro TTS is fast on CPU already.
 
 ## How the agent works
 
-`src/visual_agent/agent.py` builds a LangGraph state machine:
+`src/visual_agent/agent.py` builds a LangGraph state machine shared by browser
+and desktop modes:
 
-1. **agent** node — the VLM gets the task + the latest screenshot and emits one tool call (ReAct: it states what it sees/plans, then acts).
-2. **tools** node — the call runs in Playwright (fixed 1280×800 viewport, so model pixel coordinates map 1:1 to mouse clicks), a fresh screenshot is captured, saved to `runs/`, and appended to the conversation. Screenshots older than `MAX_SCREENSHOTS` are pruned from context.
-3. Loop until the model calls `finish(answer)` or `MAX_STEPS` is hit.
+1. **agent** node — the VLM gets the task + latest annotated screenshot and
+   emits one tool call (ReAct: describe what it sees, then act).
+2. **tools** node — the action runs (Playwright or pyautogui), a fresh
+   observation is captured into `runs/<timestamp>/`, old screenshots are pruned
+   from context (`MAX_SCREENSHOTS`).
+3. Loop until `finish(answer)` or `MAX_STEPS`.
 
-## Tests (no GPU needed)
+Voice (`src/visual_agent/voice.py`): FastRTC streams mic audio; on a pause,
+Whisper transcribes, a one-word LLM router picks chat vs. task, replies are
+chunked into sentences and spoken by Kokoro as tokens stream. Interruptions
+close the generator, cancelling speech and generation.
+
+## Tests (no GPU, no mic, no display needed)
 
 ```bash
-pytest        # scripted fake LLM + real headless Chromium on a local test page
+pytest    # 17 tests: agent loop + Set-of-Marks vs real headless Chromium,
+          # desktop coordinate scaling (mocked), voice chunking/routing
 ```
 
-## Extensions (out of scope here)
+## Safety notes
 
-- OS-level desktop control (needs a sandboxed VM — browser-only is safer/simpler)
-- Pointing [Open WebUI](https://github.com/open-webui/open-webui) at the same vLLM endpoint for a richer plain-chat frontend
-- Multi-agent orchestration, RAG over documents, fine-tuning
-
-## Safety note
-
-The computer-use agent controls a real browser. Run it against sites you trust,
-review tasks before running, and keep `MAX_STEPS` modest. Don't give it
-sessions that are logged in to sensitive accounts.
+- The browser agent controls a real browser; the **desktop agent controls your
+  real mouse and keyboard** — prefer running it in a VM or a spare desktop
+  session, review tasks first, keep `MAX_STEPS` modest, and never leave it
+  logged in to sensitive accounts. Corner-slam the mouse to abort.
+- Headless servers can still run desktop mode under a virtual display:
+  `sudo apt install xvfb && xvfb-run -s "-screen 0 1280x800x24" visual-agent desktop "..."`.

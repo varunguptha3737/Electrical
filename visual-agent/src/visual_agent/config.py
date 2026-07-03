@@ -25,6 +25,20 @@ class Settings(BaseSettings):
     max_steps: int = 15
     max_screenshots: int = 3
     max_image_edge: int = 1280
+    # "hybrid": numbered interactive elements overlaid on the screenshot and
+    # element-id tools (efficient, reliable). "pixels": raw screenshots and
+    # coordinate clicks only.
+    agent_vision_mode: str = "hybrid"
+    # What "computer use" controls: "browser" (safe default, Playwright) or
+    # "desktop" (whole OS screen via pyautogui — install the [desktop] extra)
+    computer_mode: str = "browser"
+
+    # Voice mode
+    stt_backend: str = "whisper"  # "whisper" (faster-whisper) or "moonshine"
+    whisper_model: str = "large-v3-turbo"
+    whisper_device: str = "auto"  # auto / cuda / cpu
+    tts_voice: str = "af_heart"  # Kokoro voice
+    voice_narration: bool = True  # speak short progress lines during browse tasks
 
     runs_dir: str = "runs"
 

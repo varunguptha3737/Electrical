@@ -14,13 +14,18 @@ dependencies = [
     "langchain-core>=0.3.30",
     "langchain-openai>=0.3.0",
     "playwright>=1.48",
-    "gradio>=6.0",
+    "gradio>=5.50,<6.0",
     "typer>=0.12",
     "pydantic-settings>=2.5",
     "pillow>=10.0",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
+# ChatGPT-style voice conversation (WebRTC + VAD + Whisper STT + Kokoro TTS)
+voice = ["fastrtc[vad,tts]>=0.0.20", "faster-whisper>=1.0"]
+# OS-level desktop control (open apps, click/type on the whole screen)
+desktop = ["pyautogui>=0.9.54", "mss>=9.0"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

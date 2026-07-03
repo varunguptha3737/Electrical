@@ -47,6 +47,18 @@ def chat(
         history.append(AIMessage(content=reply))
 
 
+def _print_events(events):
+    for event in events:
+        if event.kind == "thought":
+            typer.secho(f"[thought] {event.text}", fg=typer.colors.CYAN)
+        elif event.kind == "tool":
+            typer.secho(f"[action]  {event.tool_name}({event.tool_args})", fg=typer.colors.YELLOW)
+        elif event.kind == "screenshot":
+            typer.echo(f"[shot]    {event.screenshot_path}")
+        elif event.kind == "final":
+            typer.secho(f"\n[result]  {event.text}", fg=typer.colors.GREEN, bold=True)
+
+
 @app.command()
 def browse(
     task: str = typer.Argument(..., help="Natural-language task for the browser agent."),
@@ -57,15 +69,28 @@ def browse(
 
     typer.echo(f"Model: {settings.model_name} @ {settings.vllm_base_url}")
     typer.echo(f"Task: {task}\n")
-    for event in run_browse_task(task, max_steps=max_steps):
-        if event.kind == "thought":
-            typer.secho(f"[thought] {event.text}", fg=typer.colors.CYAN)
-        elif event.kind == "tool":
-            typer.secho(f"[action]  {event.tool_name}({event.tool_args})", fg=typer.colors.YELLOW)
-        elif event.kind == "screenshot":
-            typer.echo(f"[shot]    {event.screenshot_path}")
-        elif event.kind == "final":
-            typer.secho(f"\n[result]  {event.text}", fg=typer.colors.GREEN, bold=True)
+    _print_events(run_browse_task(task, max_steps=max_steps))
+
+
+@app.command()
+def desktop(
+    task: str = typer.Argument(..., help="Task for the OS-level desktop agent."),
+    max_steps: int = typer.Option(None, help=f"Step limit (default {settings.max_steps})."),
+):
+    """Control the WHOLE desktop: open apps (LibreOffice, GIMP…), click, type.
+
+    Needs a display and the desktop extra: pip install -e ".[desktop]"
+    """
+    from .agent import run_desktop_task
+
+    typer.secho(
+        "⚠ The agent will control your real mouse/keyboard. "
+        "Slam the mouse into a screen corner to abort.",
+        fg=typer.colors.RED,
+    )
+    typer.echo(f"Model: {settings.model_name} @ {settings.vllm_base_url}")
+    typer.echo(f"Task: {task}\n")
+    _print_events(run_desktop_task(task, max_steps=max_steps))
 
 
 @app.command()

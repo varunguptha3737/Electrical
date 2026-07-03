@@ -84,6 +84,25 @@ def test_max_steps_cutoff(session, tmp_path, monkeypatch):
     assert "3-step limit" in events[-1].text
 
 
+def test_hybrid_element_loop(session, tmp_path, monkeypatch):
+    """Set-of-Marks mode: the fake model acts by element id, not pixels."""
+    monkeypatch.setattr("visual_agent.agent.settings.runs_dir", str(tmp_path))
+    monkeypatch.setattr("visual_agent.agent.settings.agent_vision_mode", "hybrid")
+    llm = FakeToolCallingLLM(
+        [
+            _ai("navigate", {"url": PAGE}, "h1"),
+            # test page DOM order: [1] button "Click me", [2] input
+            _ai("click_element", {"element_id": 1}, "h2"),
+            _ai("type_in_element", {"element_id": 2, "text": "via element id"}, "h3"),
+            _ai("finish", {"answer": "hybrid done"}, "h4"),
+        ]
+    )
+    events = list(run_browse_task("hybrid task", llm=llm, session=session, max_steps=10))
+    assert events[-1].kind == "final" and events[-1].text == "hybrid done"
+    assert session.page.locator("#result").text_content() == "button-clicked"
+    assert session.page.locator("#name-input").input_value() == "via element id"
+
+
 def test_prune_screenshots_keeps_recent():
     def shot(i):
         return HumanMessage(
