@@ -6,6 +6,7 @@ A fully open-source **visual agentic AI** that runs on **48 GB VRAM** (local or 
 - **Computer use (browser)** — give it a task and it drives a real browser: looks at the page, clicks numbered elements, types, scrolls, until done.
 - **Computer use (desktop)** — control the *whole* OS screen: open LibreOffice Calc and edit a spreadsheet, open a photo in GIMP and edit it, use any app.
 - **Voice mode** — talk to it like ChatGPT/Claude voice: it answers with a natural voice, you can **interrupt it mid-sentence**, and spoken commands ("open Wikipedia and…") run the computer-use agent with spoken progress.
+- **Long-term memory** — it remembers you across sessions in a plain-markdown vault that is **Obsidian-compatible**: open the `memory/` folder in Obsidian to browse, edit, or graph what it knows.
 
 **Stack (all open source):** [vLLM](https://github.com/vllm-project/vllm) serving [Qwen3-VL](https://huggingface.co/Qwen) · [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent loop · [Playwright](https://playwright.dev) browser · [pyautogui](https://github.com/asweigart/pyautogui)+[mss](https://github.com/BoboTiG/python-mss) desktop control · [FastRTC](https://github.com/gradio-app/fastrtc) (WebRTC + Silero VAD) · [faster-whisper](https://github.com/SYSTRAN/faster-whisper) STT · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) TTS · [Gradio](https://gradio.app) UI · Typer CLI.
 
@@ -112,6 +113,30 @@ control, voice, UI, CLI — runs on your laptop (CPU is fine).
 
 For voice on a CPU-only laptop set `WHISPER_MODEL=small` (or
 `STT_BACKEND=moonshine`); Kokoro TTS is fast on CPU already.
+
+## 6. Long-term memory (Obsidian-compatible)
+
+The agent remembers you across sessions — shared by chat, voice, and the CLI:
+
+- After each exchange, one background model call decides whether it learned a
+  **durable fact** ("user's name is Varun", "prefers LibreOffice") and saves it
+  as a small markdown note in `memory/notes/`. Full conversations are logged
+  to `memory/transcripts/`.
+- At the start of every reply, relevant + recent notes are injected into the
+  model's context, so "you remember my dog's name?" just works.
+- The vault is **plain markdown with YAML frontmatter** — open `memory/` as an
+  Obsidian vault to browse, edit, delete, or graph it. Set `MEMORY_DIR` to an
+  existing vault to share it.
+- Manage it anywhere: the **Memory** tab in the UI (add/forget/refresh),
+  `visual-agent memory` / `visual-agent memory --forget <file>` in the
+  terminal, or just edit the files.
+- Kill switches: `AUTO_MEMORY=false` (no automatic saving) or
+  `MEMORY_ENABLED=false` (no memory at all).
+
+Recall is transparent keyword matching over your notes — no database, no
+embedding model, nothing to babysit. (If you ever outgrow it, graph-based
+memory engines like [Graphiti](https://github.com/getzep/graphiti) are the
+heavyweight open-source alternative, at the cost of running Neo4j.)
 
 ## How the agent works
 

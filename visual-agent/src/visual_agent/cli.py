@@ -94,6 +94,29 @@ def desktop(
 
 
 @app.command()
+def memory(
+    forget: str = typer.Option(None, help="Delete a note by its filename."),
+):
+    """Show (or delete from) the agent's long-term memory vault."""
+    from .memory import get_vault
+
+    vault = get_vault()
+    if forget:
+        ok = vault.forget(forget)
+        typer.secho(
+            f"Deleted {forget}." if ok else f"No note named {forget}.",
+            fg=typer.colors.GREEN if ok else typer.colors.RED,
+        )
+        return
+    notes = vault.notes()
+    typer.echo(f"Memory vault: {vault.root.resolve()}  ({len(notes)} notes)")
+    typer.echo("Open this folder as an Obsidian vault to browse/edit it.\n")
+    for path, text in notes:
+        typer.secho(f"• {path.name}", fg=typer.colors.CYAN)
+        typer.echo(f"  {vault._body(text)}")
+
+
+@app.command()
 def ui(
     host: str = typer.Option("127.0.0.1", help="Bind address."),
     port: int = typer.Option(7860, help="Port."),

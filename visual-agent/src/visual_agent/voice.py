@@ -176,7 +176,7 @@ class VoiceAssistant:
     def _chat(self, text: str, llm):
         self.history.append(HumanMessage(content=text))
         reply = ""
-        for sentence in sentence_chunks(stream_chat(self.history, llm=llm)):
+        for sentence in sentence_chunks(stream_chat(self.history, llm=llm, mode="voice")):
             reply += sentence + " "
             yield from speak(sentence)
         self.history.append(AIMessage(content=reply.strip()))
@@ -195,4 +195,7 @@ class VoiceAssistant:
                 final = event.text
         self.history.append(HumanMessage(content=text))
         self.history.append(AIMessage(content=final or "Task finished."))
+        from .memory import after_exchange
+
+        after_exchange(text, final or "Task finished.", llm, mode="voice-task")
         yield from speak(final or "The task is finished.")

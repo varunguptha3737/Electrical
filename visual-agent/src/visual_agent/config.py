@@ -42,5 +42,13 @@ class Settings(BaseSettings):
 
     runs_dir: str = "runs"
 
+    # Long-term memory: a folder of plain markdown notes (Obsidian-compatible;
+    # point MEMORY_DIR at an existing vault if you like)
+    memory_enabled: bool = True
+    memory_dir: str = "memory"
+    # After each exchange, ask the model whether it learned a durable fact
+    # about the user and save it as a note
+    auto_memory: bool = True
+
 
 settings = Settings()

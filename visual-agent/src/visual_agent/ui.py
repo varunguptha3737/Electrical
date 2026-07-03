@@ -113,7 +113,62 @@ def build_ui() -> gr.Blocks:
         with gr.Tab("Voice"):
             _build_voice_tab()
 
+        with gr.Tab("Memory"):
+            _build_memory_tab()
+
     return demo
+
+
+def _list_memory() -> str:
+    from .memory import get_vault
+
+    vault = get_vault()
+    notes = vault.notes()
+    if not notes:
+        return (
+            f"*(no memories yet — vault: `{vault.root.resolve()}`)*\n\n"
+            "The agent saves durable facts here automatically after "
+            "conversations. Open the folder as an **Obsidian vault** to "
+            "browse or edit it."
+        )
+    lines = [f"**{len(notes)} memories** — vault: `{vault.root.resolve()}` "
+             "(Obsidian-compatible)\n"]
+    for path, text in reversed(notes):
+        lines.append(f"- {vault._body(text)}  \n  `{path.name}`")
+    return "\n".join(lines)
+
+
+def _add_memory(fact: str) -> str:
+    from .memory import get_vault
+
+    if fact.strip():
+        get_vault().remember(fact)
+    return _list_memory()
+
+
+def _forget_memory(filename: str) -> str:
+    from .memory import get_vault
+
+    get_vault().forget(filename.strip())
+    return _list_memory()
+
+
+def _build_memory_tab() -> None:
+    gr.Markdown(
+        "🧠 **Long-term memory** — plain markdown notes the agent saves about "
+        "you and recalls in every conversation (chat and voice)."
+    )
+    notes_md = gr.Markdown(_list_memory())
+    with gr.Row():
+        fact_in = gr.Textbox(label="Add a memory", placeholder="e.g. I prefer metric units", scale=3)
+        add_btn = gr.Button("Remember", variant="primary", scale=1)
+    with gr.Row():
+        forget_in = gr.Textbox(label="Forget (note filename)", placeholder="20260703-...-note.md", scale=3)
+        forget_btn = gr.Button("Forget", scale=1)
+    refresh = gr.Button("Refresh")
+    add_btn.click(_add_memory, inputs=fact_in, outputs=notes_md).then(lambda: "", outputs=fact_in)
+    forget_btn.click(_forget_memory, inputs=forget_in, outputs=notes_md).then(lambda: "", outputs=forget_in)
+    refresh.click(_list_memory, outputs=notes_md)
 
 
 def _build_voice_tab() -> None:
